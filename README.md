@@ -17,8 +17,8 @@ LongAdder维护了一个延迟初始化的原子性更新数组和一个基值�
 ## 线程饥饿死锁  
 Java并发编程实践》中对线程饥饿死锁的解释是这样的：在使用线程池执行任务时，如果任务依赖于其他任务，那么就可能产生死锁问题。在单线程的Executor中，若果一个任务将另一个任务提交到同一个Executor，并且等待这个被提交的任务的结果，那么这必定会导致死锁。第一个任务在工作队列中，并等待第二个任务的结果；而第二个任务则处于等待队列中，等待第一个任务执行完成后被执行。这就是典型的线程饥饿死锁。即使是在多线程的Executor中，如果提交到Executor中的任务之间相互依赖的话，也可能会由于工作线程数量不足导致的死锁问题。
      单线程的Executor，任务之间相互依赖而导致死锁的测试代码如下：定义RanderPageTask任务，它会把另一个LoadFileTask的任务提交给同一个线程池并等待其返回，最终悲剧发生了。  
-     `
-     import java.util.concurrent.Callable;
+ `
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -59,11 +59,12 @@ public class ThreadDeadLock {
 		}
 	}
 }
-     `  
- LoadFileTask任务代码：  
- `
-    import java.util.concurrent.Callable;  
-  
+`  
+
+LoadFileTask任务代码：  
+
+`
+import java.util.concurrent.Callable;    
 public class LoadFileTask implements Callable<String> {  
     private String fileName;  
     public LoadFileTask(String fileName){  
@@ -76,5 +77,7 @@ public class LoadFileTask implements Callable<String> {
         return fileName;  
     }  
 }  
- `
+`
+
+  
 

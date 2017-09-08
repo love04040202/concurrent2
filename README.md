@@ -12,5 +12,69 @@ LongAdder维护了一个延迟初始化的原子性更新数组和一个基值�
 
 另外由于Cells占用内存是相对比较大的，所以一开始并不创建，而是在需要时候在创建，也就是惰性加载，当一开始没有空间时候，所有的更新都是操作base变量，
 
-自旋锁cellsBusy用来初始化和扩容数组表使用，这里没有必要用阻塞锁，当一次线程发现当前下标的元素获取锁失败后，会尝试获取其他下表的元素的锁。更详细的说明敬请期待 Java并发
+自旋锁cellsBusy用来初始化和扩容数组表使用，这里没有必要用阻塞锁，当一次线程发现当前下标的元素获取锁失败后，会尝试获取其他下表的元素的锁。更详细的说明敬请期待 Java并发  
+
+## 线程饥饿死锁  
+Java并发编程实践》中对线程饥饿死锁的解释是这样的：在使用线程池执行任务时，如果任务依赖于其他任务，那么就可能产生死锁问题。在单线程的Executor中，若果一个任务将另一个任务提交到同一个Executor，并且等待这个被提交的任务的结果，那么这必定会导致死锁。第一个任务在工作队列中，并等待第二个任务的结果；而第二个任务则处于等待队列中，等待第一个任务执行完成后被执行。这就是典型的线程饥饿死锁。即使是在多线程的Executor中，如果提交到Executor中的任务之间相互依赖的话，也可能会由于工作线程数量不足导致的死锁问题。
+     单线程的Executor，任务之间相互依赖而导致死锁的测试代码如下：定义RanderPageTask任务，它会把另一个LoadFileTask的任务提交给同一个线程池并等待其返回，最终悲剧发生了。  
+     `
+     import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+public class ThreadDeadLock {
+	ExecutorService exec = Executors.newSingleThreadExecutor();
+	
+	/**
+	 * 该任务会提交另外一个任务到线程池，并且等待任务的执行结果
+	 * @author bh
+	 */
+	public class RenderPageTask implements Callable<String>{
+		@Override
+		public String call() throws Exception {
+			System.out.println("RenderPageTask 依赖LoadFileTask任务返回的结果...");
+			Future<String> header,footer;
+			header = exec.submit(new LoadFileTask("header.html"));
+			footer = exec.submit(new LoadFileTask("footer.html"));
+			String page = renderBody();
+			return header.get()+page+footer.get();
+		}
+		
+		public String renderBody(){
+			return "render body is ok.";
+		}
+	}
+	
+	public static void main(String[] args) {
+		ThreadDeadLock lock = new ThreadDeadLock();
+		Future<String> result = lock.exec.submit(lock.new RenderPageTask());
+		try {
+			System.out.println("last result:"+result.get());
+		} catch (InterruptedException | ExecutionException e) {
+			e.printStackTrace();
+		}finally{
+			lock.exec.shutdown();
+		}
+	}
+}
+     `  
+ LoadFileTask任务代码：  
+ `
+    import java.util.concurrent.Callable;  
+  
+public class LoadFileTask implements Callable<String> {  
+    private String fileName;  
+    public LoadFileTask(String fileName){  
+        this.fileName = fileName;  
+    }  
+      
+    @Override  
+    public String call() throws Exception {  
+        System.out.println("LoadFileTask execute call...");  
+        return fileName;  
+    }  
+}  
+ `
 
